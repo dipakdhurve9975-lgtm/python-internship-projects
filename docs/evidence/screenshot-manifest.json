@@ -1,0 +1,51 @@
+[
+  {
+    "file": "sundrop-home.png",
+    "sha256": "ca34bbb2301c50b7f97da7cac41eba6dcabb4865b9abaccf5ac130f737c57e7d",
+    "caption": "Archived initial SunDrop interface. The report now uses sundrop-retro.png.",
+    "capture_date": "2026-10-11",
+    "current_design": false
+  },
+  {
+    "file": "mathduel-home.jpg",
+    "sha256": "001f766308294fb21e0369011b43b6cdb8a7774bf9f4e872f25335b5b72a0a08",
+    "caption": "Real initial welcome page. Before final practice/duel styling refinement.",
+    "capture_date": "2026-10-11",
+    "current_design": false
+  },
+  {
+    "file": "mathduel-lobby.jpg",
+    "sha256": "18c92c3d23fbd4cefaac1fd1b217ebdd6273b7067fbf55342a1e845a9c7cda8f",
+    "caption": "Two connected browser tabs on one laptop: Ada and Alan, waiting for host start. Local simulation, not physical LAN evidence.",
+    "capture_date": "2026-10-11",
+    "current_design": false
+  },
+  {
+    "file": "mathduel-match.jpg",
+    "sha256": "380f22c46755f9fea8b28d469f4fef8fdf7de1a537308aaaf06d02bbaf8c4e74",
+    "caption": "Real shared first-round question and server-derived countdown in the local two-tab match. Before final styling refinement.",
+    "capture_date": "2026-10-11",
+    "current_design": false
+  },
+  {
+    "file": "mathduel-results.jpg",
+    "sha256": "44b00fc8be6395bd9c5bee9a8fa8b801266d9610f105afaf1e441bc2e304e30e",
+    "caption": "Real completed two-tab match: Ada 54, Alan 53, both 40 percent accuracy. Missing rounds timed out. No physical phone test.",
+    "capture_date": "2026-10-11",
+    "current_design": false
+  },
+  {
+    "file": "mathduel-mobile-solo.jpg",
+    "sha256": "a2a8eb6ace94ca909ddc2f9de1c24f54703f11777aa091f90c9f1b5e0b839463",
+    "caption": "Real solo game in a 390 by 844 browser viewport, visible numeric keypad, content width 375. Browser viewport simulation, not a real phone. Before final refinement.",
+    "capture_date": "2026-10-11",
+    "current_design": false
+  },
+  {
+    "file": "sundrop-retro.png",
+    "sha256": "c66fc5f505a9f7e39fb789f34d69d76557d3ad48e79a7863032431f3769b11ef",
+    "caption": "Actual current SunDrop retro desktop, separate empty verification library.",
+    "capture_date": "2026-10-11",
+    "current_design": true
+  }
+]

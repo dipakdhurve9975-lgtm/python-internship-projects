@@ -1,0 +1,6 @@
+customtkinter>=5.2,<7
+yt-dlp>=2026.8.19
+Pillow>=11,<13
+pytest>=8,<10
+mutagen>=1.47,<2
+pygame-ce>=2.5,<3

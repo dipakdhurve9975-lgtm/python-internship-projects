@@ -1,0 +1,22 @@
+{
+  "mode": "Two tabs on one laptop, no physical two-device LAN test",
+  "roundOne": "Both answered 10 ÷ 10 correctly; server awarded 12 and 11",
+  "laterRounds": [
+    {
+      "round": 8,
+      "question": "√100",
+      "sameOnBothTabs": true
+    },
+    {
+      "round": 9,
+      "question": "1²",
+      "sameOnBothTabs": true
+    },
+    {
+      "round": 10,
+      "question": "7 + 3",
+      "sameOnBothTabs": true
+    }
+  ],
+  "results": "Ada: 40% accuracy · 2.39s average submitted response\n\nAlan: 40% accuracy · 2.71s average submitted response"
+}

@@ -1,0 +1,4 @@
+Socket.IO client 4.8.1
+Source: https://registry.npmjs.org/socket.io-client/-/socket.io-client-4.8.1.tgz
+Tarball SHA256: e39a4baa07488a5cfe10de424bc8646ed897f5dbd318312a852ff74570e47e01
+MIT license in SOCKET_IO_LICENSE.txt

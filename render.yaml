@@ -1,0 +1,16 @@
+services:
+  - type: web
+    name: mathduel-python
+    runtime: python
+    plan: free
+    rootDir: mathduel-lan
+    buildCommand: pip install -r requirements-hosted.txt
+    startCommand: gunicorn --workers 1 --threads 40 --timeout 120 --bind 0.0.0.0:$PORT wsgi:app
+    healthCheckPath: /health
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.12.14
+      - key: MATHDUEL_HOSTED
+        value: '1'
+      - key: MATHDUEL_DATA_DIR
+        value: /tmp/mathduel
