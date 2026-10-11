@@ -126,15 +126,18 @@ class Engine:
     def join(self, code, name):
         self.expire()
         room = self.get(code)
-        if room.solo or room.phase != 'lobby' or len(room.players) >= 2:
-            raise ValueError('Room is full or already started.')
+        if room.solo: raise ValueError('This is a solo room. Ask your friend for a two-player room code.')
+        if room.phase != 'lobby': raise ValueError('This match has already started. Existing players should reconnect in their original tab.')
+        if len(room.players) >= 2: raise ValueError('Room is full. Existing players should reconnect in their original tab, or create a new room.')
         p = Player(nickname(name))
         room.players.append(p)
         return room, p
 
     def get(self, code):
-        if not isinstance(code, str) or not re.fullmatch(r'\d{6}', code) or code not in self.rooms:
-            raise ValueError('Room not found or expired.')
+        if not isinstance(code, str) or not re.fullmatch(r'[0-9]{6}', code):
+            raise ValueError('Enter the six-digit room code.')
+        if code not in self.rooms:
+            raise ValueError('Room not found or expired. The server may have restarted. Ask your friend to create a new room.')
         return self.rooms[code]
 
     def find(self, sid):

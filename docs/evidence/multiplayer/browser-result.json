@@ -1,0 +1,18 @@
+{
+  "date": "2026-10-11T17:13:39.816Z",
+  "url": "http://127.0.0.1:5057",
+  "browser": "Installed Google Chrome",
+  "independentContexts": 2,
+  "distinctSignedSessions": true,
+  "createJoin": true,
+  "duplicateCreatePrevented": true,
+  "reloadResume": true,
+  "temporaryOfflineResume": true,
+  "synchronizedTenRoundMatch": true,
+  "missingRoomRecovery": true,
+  "pageErrors": [],
+  "webSocketConnections": 5,
+  "webSocketFramesReceived": 116,
+  "physicalDevicesTested": false,
+  "differentPhysicalNetworksTested": false
+}

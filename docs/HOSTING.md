@@ -9,3 +9,5 @@ The free hosted demo stores anonymous statistics in temporary storage. Restarts 
 The LAN launch command remains available. Publishing status and verified URLs should be recorded only after the live service has been checked.
 
 References: https://flask-socketio.readthedocs.io/en/stable/deployment.html and https://render.com/docs/deploy-flask
+
+See [MULTIPLAYER_FIX.md](MULTIPLAYER_FIX.md) for the rate-limit repair, online/LAN instructions, reconnect behavior, free-plan limits and deployment checks. The repaired health endpoint reports `version: multiplayer-2` and `ticker_active: true`. Use one serving worker and do not enable Gunicorn preloading.
