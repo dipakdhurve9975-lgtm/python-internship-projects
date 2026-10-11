@@ -48,3 +48,11 @@ Local validation: 80 Python tests passed (43 MathDuel and 37 SunDrop). The Chrom
 No physical-device or different-real-network test was performed. The forwarded-address test simulates two networks, and browser offline mode simulates connection loss. A real phone/laptop test over mobile data versus Wi-Fi remains a manual check.
 
 A new Render deployment is required: local changes and a GitHub push do not update the manually created public-repository service by themselves. Deploy the corrected commit, then check `/health` for `version: multiplayer-2`, `mode: online`, `ticker_active: true`, and repeat the browser test against the public URL. Until that succeeds, do not describe the live service as fixed.
+
+### Completed Render deployment
+
+The user confirmed deployment. Commit `db3efe5af377de384dd1d8c8a785374568c5c5d4` was manually deployed as `dep-db5s8c942hec73a1phug`. Render reported a successful live deployment and logged the clock starting inside the serving worker. Public `/health` returned HTTP 200 with `mode: online`, `version: multiplayer-2` and `ticker_active: true`.
+
+The same two-context Chrome verification then passed against `https://mathduel-python.onrender.com`, including create/join, a full synchronized ten-round duel, reload resume, simulated temporary offline recovery and stale-room cleanup, with zero page errors and 104 received WebSocket frames. Evidence is in `docs/evidence/multiplayer/render/`. Separate real-server WebSocket and polling-fallback smoke tests both observed lobby → question 1 → feedback 1 → question 2. The older clock stall was no longer reproduced after this deployment. The exact old clock failure remains unproven because the inspected historical logs had no matching exception.
+
+No further application deployment is needed for this repair. Documentation/test-evidence commits after `db3efe5` do not change the serving application.

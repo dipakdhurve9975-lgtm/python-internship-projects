@@ -1,0 +1,18 @@
+{
+  "date": "2026-10-11T17:17:21.050Z",
+  "url": "https://mathduel-python.onrender.com",
+  "browser": "Installed Google Chrome",
+  "independentContexts": 2,
+  "distinctSignedSessions": true,
+  "createJoin": true,
+  "duplicateCreatePrevented": true,
+  "reloadResume": true,
+  "temporaryOfflineResume": true,
+  "synchronizedTenRoundMatch": true,
+  "missingRoomRecovery": true,
+  "pageErrors": [],
+  "webSocketConnections": 5,
+  "webSocketFramesReceived": 104,
+  "physicalDevicesTested": false,
+  "differentPhysicalNetworksTested": false
+}

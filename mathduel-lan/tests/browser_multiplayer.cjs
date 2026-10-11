@@ -4,7 +4,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 const url = process.env.MATHDUEL_TEST_URL || 'http://127.0.0.1:5057';
-const output = path.resolve(__dirname, '../../docs/evidence/multiplayer');
+const output = process.env.MATHDUEL_EVIDENCE_DIR || path.resolve(__dirname, '../../docs/evidence/multiplayer');
 fs.mkdirSync(output, {recursive:true});
 function solve(text){
  const n=text.match(/-?\d+/g).map(Number);
