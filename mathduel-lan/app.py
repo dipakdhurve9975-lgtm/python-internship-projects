@@ -33,7 +33,7 @@ def create_app(db_path=None, background=True):
     app.extensions['socketio'] = sio
 
     @app.get('/')
-    def index(): return render_template('index.html')
+    def index(): return render_template('index.html', hosted=hosted)
 
     @app.get('/health')
     def health(): return jsonify(status='ok', service='MathDuel LAN', debug=False)
