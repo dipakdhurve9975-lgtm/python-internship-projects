@@ -9,6 +9,7 @@ from PIL import Image, ImageDraw, ImageOps
 from core import Downloader, History, friendly_error
 from player import AudioPlayer, VideoPlayer, open_local
 from effects import video_effect, cd_landscape
+from scrolling import StableScrollableFrame
 
 ctk.set_appearance_mode('Light')
 BG=('#BCE8E5','#203534');CARD=('#F5EFE2','#293a37');INK=('#282923','#f5efe2');MUTED=('#58635c','#b8cec5');AMBER='#f4bd35';OUTLINE=('#282923','#b8cec5')
@@ -49,7 +50,7 @@ class SunDrop(ctk.CTk):
             self.button(side,{'Download':'↓  Download','History':'▤  Library','Settings':'⚙  Settings'}[text],lambda t=text:self.show(t),height=55).pack(fill='x',padx=16,pady=8)
         self.button(side,'♫  Mini player',self.show_player,height=48).pack(fill='x',padx=16,pady=(25,8))
         self.label(side,'Made for media\nyou may download.',12,color=MUTED).pack(side='bottom',pady=30,padx=20,anchor='w')
-        self.content=ctk.CTkScrollableFrame(self,fg_color=BG,corner_radius=0);self.content.grid(row=1,column=1,sticky='nsew',padx=(10,22),pady=15)
+        self.content=StableScrollableFrame(self,fg_color=BG);self.content.grid(row=1,column=1,sticky='nsew',padx=(10,22),pady=15)
         self.pages={}
         for name in ('Download','History','Settings'):self.pages[name]=ctk.CTkFrame(self.content,fg_color='transparent')
         self.build_download();self.build_settings();self.show('Download');self.style_inputs(self)
@@ -70,6 +71,9 @@ class SunDrop(ctk.CTk):
     def style_inputs(self,widget):
         # Apply the retro skin to existing controls without changing their actions.
         for child in widget.winfo_children():
+            # Composite controls own their fonts and size calculations. Styling
+            # their internal buttons independently clips/overlaps their labels.
+            if isinstance(child,(ctk.CTkSegmentedButton,ctk.CTkOptionMenu,ctk.CTkSlider,ctk.CTkCheckBox)):continue
             if isinstance(child,ctk.CTkEntry):child.configure(border_width=2,border_color=OUTLINE,fg_color=CARD,corner_radius=7)
             elif isinstance(child,ctk.CTkButton):child.configure(border_width=2,border_color=OUTLINE,corner_radius=7,font=ctk.CTkFont(family='Consolas',size=13,weight='bold'),fg_color=CARD,hover_color=('#a9d9d5','#3d5852'),text_color=INK)
             self.style_inputs(child)
@@ -153,6 +157,7 @@ class SunDrop(ctk.CTk):
                     play_button=self.button(actions,'Play / Pause',lambda record=item:self.play_item(record),width=130);play_button.pack(side='left');play_button.configure(state='normal' if exists else 'disabled')
                 if item.get('warning'):self.label(card,item['warning'],12,color=MUTED,wraplength=660).pack(anchor='w',padx=18,pady=(0,12))
         self.pages[name].pack(fill='both',expand=True)
+        self.content.yview('moveto',0)
 
     def pick_folder(self):
         folder=filedialog.askdirectory(initialdir=str(Path.home()/'Downloads'))
@@ -225,7 +230,7 @@ class SunDrop(ctk.CTk):
         self.player_window=ctk.CTkToplevel(self);self.player_window.title('SunDrop · video & audio player');self.player_window.geometry('740x720');self.player_window.minsize(700,500);self.player_window.configure(fg_color=BG)
         self.player_window.protocol('WM_DELETE_WINDOW',self.close_player)
         window=self.player_window
-        body=ctk.CTkScrollableFrame(window,fg_color=BG);body.pack(fill='both',expand=True,padx=10,pady=8)
+        body=StableScrollableFrame(window,fg_color=BG);body.pack(fill='both',expand=True,padx=10,pady=8)
         card=self.card(body)
         theme_row=ctk.CTkFrame(card,fg_color='transparent');theme_row.pack(fill='x',padx=20,pady=(10,0))
         self.label(theme_row,'APPEARANCE',11,True,color=MUTED).pack(side='left')
@@ -311,15 +316,20 @@ class SunDrop(ctk.CTk):
     def update_player(self):
         if not self.player_window or not self.player_window.winfo_exists():return
         item=self.current_track or {};player=self.active_player();position=player.position();duration=player.duration
-        self.track_title.configure(text=item.get('title','Choose a track from your library.'))
-        self.play_button.configure(text='Pause' if player.active and not player.paused else 'Play')
+        self.configure_changed(self.track_title,text=item.get('title','Choose a track from your library.'))
+        self.configure_changed(self.play_button,text='Pause' if player.active and not player.paused else 'Play')
         is_video=self.using_video and self.video_player.has_video
-        self.effect_control.configure(state='normal' if is_video else 'disabled')
-        self.disc_toggle.configure(state='disabled' if is_video else 'normal')
-        self.seek_slider.configure(state='normal' if duration else 'disabled')
+        self.configure_changed(self.effect_control,state='normal' if is_video else 'disabled')
+        self.configure_changed(self.disc_toggle,state='disabled' if is_video else 'normal')
+        self.configure_changed(self.seek_slider,state='normal' if duration else 'disabled')
         self.seek_slider.set(min(1,position/duration) if duration else 0)
         self.playback_progress.set(min(1,position/duration) if duration else 0)
-        self.track_time.configure(text=f'{int(position)//60:02}:{int(position)%60:02} / '+(f'{int(duration)//60:02}:{int(duration)%60:02}' if duration else '--:--'))
+        self.configure_changed(self.track_time,text=f'{int(position)//60:02}:{int(position)%60:02} / '+(f'{int(duration)//60:02}:{int(duration)%60:02}' if duration else '--:--'))
+
+    @staticmethod
+    def configure_changed(widget,**values):
+        changed={key:value for key,value in values.items() if widget.cget(key)!=value}
+        if changed:widget.configure(**changed)
 
     def work(self,task):
         self.busy=True;self.cancel.clear();self.preview_button.configure(state='disabled');self.download_button.configure(state='disabled')
