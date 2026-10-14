@@ -7,7 +7,8 @@ from tkinter import filedialog
 import customtkinter as ctk
 from PIL import Image, ImageDraw, ImageOps
 from core import Downloader, History, friendly_error
-from player import AudioPlayer, open_local
+from player import AudioPlayer, VideoPlayer, open_local
+from effects import video_effect
 
 ctk.set_appearance_mode('Light')
 BG=('#BCE8E5','#203534');CARD=('#F5EFE2','#293a37');INK=('#282923','#f5efe2');MUTED=('#58635c','#b8cec5');AMBER='#f4bd35';OUTLINE=('#282923','#b8cec5')
@@ -26,7 +27,11 @@ class SunDrop(ctk.CTk):
         self.title(os.environ.get('SUNDROP_WINDOW_TITLE','SunDrop · your little media shelf'))
         self.geometry('1080x640');self.minsize(860,560);self.configure(fg_color=BG)
         self.events=queue.Queue();self.cancel=threading.Event();self.busy=False;self.info=None;self.choices={};self.inspected_url=None
-        self.player=AudioPlayer();self.player_window=None;self.library_images=[];self.current_track=None
+        # Use one decoder family for the GUI: pygame and FFpyplayer ship different
+        # SDL DLL versions on Windows and cannot safely be initialized together.
+        self.player=VideoPlayer();self.video_player=VideoPlayer();self.using_video=False;self.player_window=None;self.library_images=[];self.current_track=None
+        self.last_frame=None;self.effect_mode='Normal';self.disc_enabled=True;self._frame_after=None
+        self.cd_visual=VideoPlayer();self.cd_reference=Path(__file__).resolve().parent/'assets/music-cd-reference.mp4';self.last_cd_frame=None
         data=Path(os.environ.get('SUNDROP_DATA_DIR',Path.home()/'.sundrop'))
         self.service=Downloader(History(data/'history.json'))
         self.folder=ctk.StringVar(value=str(Path.home()/'Downloads'/'SunDrop'))
@@ -34,7 +39,7 @@ class SunDrop(ctk.CTk):
         self.grid_columnconfigure(1,weight=1);self.grid_rowconfigure(1,weight=1)
         top=ctk.CTkFrame(self,fg_color=CARD,corner_radius=10,border_width=2,border_color=OUTLINE,height=42);top.grid(row=0,column=0,columnspan=2,sticky='ew',padx=12,pady=(12,0))
         self.label(top,'▣ SunDrop',18,True).pack(side='left',padx=15,pady=8)
-        for name,callback in [('File',self.pick_folder),('Downloads',lambda:self.show('History')),('View',self.toggle_theme),('Settings',lambda:self.show('Settings'))]:
+        for name,callback in [('File',self.pick_media),('Downloads',lambda:self.show('History')),('View',self.toggle_theme),('Settings',lambda:self.show('Settings'))]:
             self.button(top,name,callback,width=92,height=30).pack(side='left',padx=3)
         self.button(top,'×',self.close,width=35,height=30).pack(side='right',padx=8)
         self.button(top,'–',self.iconify,width=35,height=30).pack(side='right',padx=3)
@@ -93,7 +98,8 @@ class SunDrop(ctk.CTk):
         self.label(selectors,'FORMAT',11,True).grid(row=0,column=0,sticky='w',pady=(0,5))
         self.label(selectors,'QUALITY / SOURCE',11,True).grid(row=0,column=1,sticky='w',padx=14,pady=(0,5))
         self.format_type=ctk.CTkOptionMenu(selectors,values=['Original'],command=self.filter_formats,height=42,fg_color=('#BCE8E5','#364e48'),button_color='#526e62',button_hover_color='#3b554a',text_color=INK,width=150);self.format_type.grid(row=1,column=0)
-        self.formats=ctk.CTkOptionMenu(selectors,values=['Fetch a URL first'],height=42,fg_color=('#BCE8E5','#364e48'),button_color='#526e62',button_hover_color='#3b554a',text_color=INK);self.formats.grid(row=1,column=1,sticky='ew',padx=(14,0))
+        self.formats=ctk.CTkOptionMenu(selectors,values=['Fetch a URL first'],command=self.selection_note,height=42,fg_color=('#BCE8E5','#364e48'),button_color='#526e62',button_hover_color='#3b554a',text_color=INK);self.formats.grid(row=1,column=1,sticky='ew',padx=(14,0))
+        self.selection_hint=self.label(card,'Video keeps the picture. Audio only saves sound.',12,color=MUTED,wraplength=700);self.selection_hint.pack(anchor='w',padx=22,pady=5)
         row=ctk.CTkFrame(card,fg_color='transparent');row.pack(fill='x',padx=22,pady=(8,18));row.grid_columnconfigure(0,weight=1)
         ctk.CTkEntry(row,textvariable=self.folder,height=40,fg_color=BG,text_color=INK).grid(row=0,column=0,sticky='ew',padx=(0,12))
         ctk.CTkButton(row,text='Choose folder',width=125,height=40,fg_color=('#eee3c4','#363c30'),text_color=INK,hover_color=('#e0cea3','#454c3f'),command=self.pick_folder).grid(row=0,column=1)
@@ -112,7 +118,7 @@ class SunDrop(ctk.CTk):
         self.label(card,('Detected: '+self.service.ffmpeg()) if self.service.ffmpeg() else 'Not installed. Single-file downloads are still available.',13,color=MUTED,wraplength=650).pack(anchor='w',padx=24,pady=(0,24))
         card=self.card(page)
         self.label(card,'Your privacy and permissions',18,True).pack(anchor='w',padx=24,pady=(24,10))
-        self.label(card,'The last 100 files keep their title, creator, format, artwork and UTC date.\nSource URLs, credentials and cookies are not saved in the library.\nOnly save media you own or have permission to download.\nMP3 source artwork is tagged on a verified copy; MP4 uses a sidecar.\nCancel is cooperative. An active merge may not stop immediately.\nThe mini player supports local WAV, MP3 and OGG audio.',14,color=MUTED,wraplength=660).pack(anchor='w',padx=24,pady=(0,24))
+        self.label(card,'The last 100 files keep their title, creator, format, artwork and UTC date.\nSource URLs, credentials and cookies are not saved in the library.\nOnly save media you own or have permission to download.\nMP3 source artwork is tagged on a verified copy; MP4 uses a sidecar.\nCancel is cooperative. An active merge may not stop immediately.\nThe player supports video and audio. Normal, Pixel and ASCII are display effects; saved files stay unchanged.\nFile opens an existing local video or audio file.',14,color=MUTED,wraplength=660).pack(anchor='w',padx=24,pady=(0,24))
 
     def show(self,name):
         for page in self.pages.values():page.pack_forget()
@@ -131,12 +137,13 @@ class SunDrop(ctk.CTk):
                 ctk.CTkLabel(top,text='',image=image).grid(row=0,column=0,rowspan=3,padx=(0,18))
                 self.label(top,item.get('title','Media'),18,True,wraplength=510).grid(row=0,column=1,sticky='w')
                 path=Path(item.get('path',''));exists=path.is_file();size=path.stat().st_size if exists else item.get('size',0)
-                self.label(top,(item.get('creator') or 'Unknown creator')+' · '+(item.get('format') or path.suffix.lstrip('.')).upper()+f' · {size/1024/1024:.2f} MB',12,color=MUTED).grid(row=1,column=1,sticky='w')
+                kind=item.get('media_kind') or ('audio' if path.suffix.lower() in {'.m4a','.mp3','.wav','.ogg','.aac','.flac','.opus'} else 'media')
+                self.label(top,(item.get('creator') or 'Unknown creator')+' · '+kind.upper()+' · '+(item.get('format') or path.suffix.lstrip('.')).upper()+f' · {size/1024/1024:.2f} MB',12,color=MUTED).grid(row=1,column=1,sticky='w')
                 self.label(top,item.get('time','')[:19].replace('T',' ')+' UTC · '+('complete' if exists else 'File moved or missing'),12,color=MUTED).grid(row=2,column=1,sticky='w')
                 actions=ctk.CTkFrame(card,fg_color='transparent');actions.pack(fill='x',padx=18,pady=(0,18))
                 file_button=self.button(actions,'Open File',lambda p=str(path):self.open_item(p),width=110);file_button.pack(side='left',padx=(0,8));file_button.configure(state='normal' if exists else 'disabled')
                 self.button(actions,'Open Folder',lambda p=str(path):self.open_item(p,True),width=120).pack(side='left',padx=(0,8))
-                if path.suffix.lower() in AudioPlayer.supported:
+                if path.suffix.lower() in AudioPlayer.supported|VideoPlayer.supported:
                     play_button=self.button(actions,'Play / Pause',lambda record=item:self.play_item(record),width=130);play_button.pack(side='left');play_button.configure(state='normal' if exists else 'disabled')
                 if item.get('warning'):self.label(card,item['warning'],12,color=MUTED,wraplength=660).pack(anchor='w',padx=18,pady=(0,12))
         self.pages[name].pack(fill='both',expand=True)
@@ -152,8 +159,16 @@ class SunDrop(ctk.CTk):
     def filter_formats(self,group):
         values=[label for label in self.choices if self.format_group(label)==group]
         if values:self.formats.configure(values=values);self.formats.set(values[0])
+        self.selection_note()
+
+    def selection_note(self,_=None):
+        choice=self.choices.get(self.formats.get(),{})
+        text='Video download: picture + sound.' if choice.get('kind')=='video' else 'Audio-only download: sound, no video picture.'
+        if choice.get('needs_ffmpeg') and choice.get('kind')=='video':text+=' Separate source streams will be merged.'
+        self.selection_hint.configure(text=text)
 
     def format_group(self,label):
+        if self.choices.get(label,{}).get('group'):return self.choices[label]['group']
         if 'MP3 audio' in label:return 'MP3 conversion'
         if 'merge with' in label:return 'Merged video'
         parts=label.split(' · ')
@@ -177,48 +192,122 @@ class SunDrop(ctk.CTk):
 
     def play_item(self,item):
         try:
-            if self.current_track and self.current_track.get('path')==item.get('path'):self.player.toggle()
-            else:self.player.play(item['path'],item.get('duration'));self.current_track=item
+            if self.current_track and self.current_track.get('path')==item.get('path'):self.active_player().toggle()
+            else:
+                self.player.stop();self.video_player.stop();self.cd_visual.stop();self.last_cd_frame=None;self.last_frame=None
+                self.using_video=Path(item['path']).suffix.lower() not in AudioPlayer.supported
+                self.active_player().play(item['path'],item.get('duration'));self.current_track=item
             self.show_player();self.update_player()
         except Exception as error:self.notice('Playback unavailable: '+str(error))
 
+    def active_player(self):return self.video_player if self.using_video else self.player
+
+    def pick_media(self):
+        path=filedialog.askopenfilename(title='Open a video or audio file',filetypes=[('Media','*.mp4 *.webm *.mkv *.mov *.avi *.mp3 *.wav *.ogg *.m4a *.flac *.aac *.opus'),('All files','*.*')])
+        if path:self.play_item({'path':path,'title':Path(path).stem,'thumbnail':str(Path(path).with_name(Path(path).name+'.cover.jpg'))})
+
     def next_track(self,direction):
         try:
-            tracks=[r for r in self.service.history.read() if Path(r.get('path','')).is_file() and Path(r.get('path','')).suffix.lower() in AudioPlayer.supported]
-            if not tracks:raise ValueError('Download a WAV, MP3 or OGG track first.')
+            tracks=[r for r in self.service.history.read() if Path(r.get('path','')).is_file() and Path(r.get('path','')).suffix.lower() in AudioPlayer.supported|VideoPlayer.supported]
+            if not tracks:raise ValueError('Open a local media file with File, or download one first.')
             current=next((i for i,r in enumerate(tracks) if self.current_track and r['path']==self.current_track['path']),-1)
             self.current_track=None;self.play_item(tracks[(current+direction)%len(tracks)])
         except Exception as error:self.notice(str(error))
 
     def show_player(self):
         if self.player_window and self.player_window.winfo_exists():self.player_window.lift();return
-        self.player_window=ctk.CTkToplevel(self);self.player_window.title('SunDrop · local audio player');self.player_window.geometry('410x340');self.player_window.resizable(False,False);self.player_window.configure(fg_color=BG)
-        window=self.player_window;card=self.card(window)
-        self.player_cover=ctk.CTkLabel(card,text='');self.player_cover.pack(pady=(16,5))
-        self.track_title=self.label(card,'Choose a track from your library.',14,True,wraplength=350);self.track_title.pack(padx=15,pady=5)
+        self.player_window=ctk.CTkToplevel(self);self.player_window.title('SunDrop · video & audio player');self.player_window.geometry('740x720');self.player_window.minsize(700,500);self.player_window.configure(fg_color=BG)
+        self.player_window.protocol('WM_DELETE_WINDOW',self.close_player)
+        window=self.player_window
+        body=ctk.CTkScrollableFrame(window,fg_color=BG);body.pack(fill='both',expand=True,padx=10,pady=8)
+        card=self.card(body)
+        self.track_title=self.label(card,'Open a video or audio file.',14,True,wraplength=620);self.track_title.pack(padx=15,pady=(12,5))
+        self.player_cover=ctk.CTkLabel(card,text='Open a local file below, or choose one from your library.',width=640,height=360,fg_color='#172522',corner_radius=8);self.player_cover.pack(padx=20,pady=5)
+        effects=ctk.CTkFrame(card,fg_color='transparent');effects.pack(pady=5)
+        self.effect_control=ctk.CTkSegmentedButton(effects,values=['Normal','Pixel','ASCII'],command=self.set_effect,selected_color='#526e62');self.effect_control.set(self.effect_mode);self.effect_control.pack(side='left',padx=8)
+        self.disc_toggle=ctk.CTkCheckBox(effects,text='Your CD video (audio)',command=self.toggle_disc,text_color=INK)
+        if self.disc_enabled:self.disc_toggle.select()
+        self.disc_toggle.pack(side='left',padx=8)
         row=ctk.CTkFrame(card,fg_color='transparent');row.pack(pady=8)
         self.previous_button=self.button(row,'←',lambda:self.next_track(-1),width=55);self.previous_button.pack(side='left',padx=5)
         self.play_button=self.button(row,'Play',self.toggle_playback,width=130);self.play_button.pack(side='left',padx=5)
         self.next_button=self.button(row,'→',lambda:self.next_track(1),width=55);self.next_button.pack(side='left',padx=5)
         self.playback_progress=ctk.CTkProgressBar(card,width=330,progress_color='#526e62',fg_color=BG);self.playback_progress.pack(padx=18,pady=6);self.playback_progress.set(0)
         self.track_time=self.label(card,'00:00 / --:--',11,color=MUTED);self.track_time.pack()
+        self.seek_slider=ctk.CTkSlider(card,from_=0,to=1,command=self.seek_media,width=330);self.seek_slider.pack(pady=5);self.seek_slider.set(0)
         row=ctk.CTkFrame(card,fg_color='transparent');row.pack(fill='x',padx=18,pady=(8,18));self.label(row,'VOL',11,True).pack(side='left')
-        slider=ctk.CTkSlider(row,from_=0,to=1,command=self.player.set_volume,progress_color='#526e62',button_color='#282923');slider.set(self.player.volume);slider.pack(side='left',fill='x',expand=True,padx=10)
+        self.volume_slider=ctk.CTkSlider(row,from_=0,to=1,command=self.set_player_volume,progress_color='#526e62',button_color='#282923');self.volume_slider.set(self.active_player().volume);self.volume_slider.pack(side='left',fill='x',expand=True,padx=10)
+        self.button(card,'Open local video / audio',self.pick_media,width=240).pack(pady=(0,10))
+        self.label(card,'Display effects only · your saved file stays unchanged.',11,color=MUTED).pack(pady=(0,10))
+        if self._frame_after is None:self._frame_after=self.after(20,self.render_player)
         self.update_player()
+
+    def set_player_volume(self,value):
+        self.player.set_volume(value);self.video_player.set_volume(value)
+        if hasattr(self,'volume_slider') and self.volume_slider.winfo_exists():self.volume_slider.set(float(value))
+    def set_effect(self,mode):self.effect_mode=mode;self.draw_frame()
+    def toggle_disc(self):
+        self.disc_enabled=bool(self.disc_toggle.get())
+        if not self.disc_enabled:self.cd_visual.stop();self.last_cd_frame=None
+        self.draw_frame()
+    def seek_media(self,fraction):
+        player=self.active_player();player.seek(float(fraction)*player.duration)
+    def close_player(self):
+        self.player.stop();self.video_player.stop();self.cd_visual.stop()
+        if self._frame_after is not None:self.after_cancel(self._frame_after);self._frame_after=None
+        self.player_window.destroy();self.player_window=None
+    def draw_frame(self):
+        if not self.player_window or not self.player_window.winfo_exists() or not self.current_track:return
+        if self.using_video and self.video_player.has_video:
+            if self.last_frame is None:return
+            image=video_effect(self.last_frame,self.effect_mode)
+        elif self.disc_enabled:
+            if self.last_cd_frame is None:return
+            image=video_effect(self.last_cd_frame,'Normal')
+        else:
+            try:
+                with Image.open(self.current_track.get('thumbnail','')) as cover:image=ImageOps.contain(cover.convert('RGB'),(300,300))
+            except (OSError,TypeError):
+                self.player_cover.configure(image=None,text='Audio playback · CD video off');return
+        self._player_art=ctk.CTkImage(image,size=image.size);self.player_cover.configure(image=self._player_art,text='')
+    def render_player(self):
+        self._frame_after=None
+        if not self.player_window or not self.player_window.winfo_exists():return
+        try:
+            player=self.active_player();frame=player.frame()
+            if self.using_video and self.video_player.has_video:
+                if frame is not None:self.last_frame=frame;self.draw_frame()
+            elif self.current_track:
+                if self.disc_enabled:
+                    try:
+                        if self.cd_visual.media is None:self.cd_visual.play(self.cd_reference,muted=True,loop=True)
+                        should_pause=player.paused or not player.active
+                        if self.cd_visual.paused!=should_pause:self.cd_visual.toggle()
+                        visual=self.cd_visual.frame()
+                        if visual is not None:self.last_cd_frame=visual
+                    except Exception:
+                        self.cd_visual.stop();self.disc_enabled=False;self.disc_toggle.deselect()
+                        self.notice('The CD reference video could not play. Your music can still play normally.')
+                self.draw_frame()
+        except Exception as error:
+            self.active_player().stop();self.notice('Playback error: '+str(error))
+        self._frame_after=self.after(40,self.render_player)
 
     def toggle_playback(self):
         if not self.current_track:self.next_track(1);return
-        try:self.player.toggle();self.update_player()
+        try:self.active_player().toggle();self.update_player()
         except Exception as error:self.notice(str(error))
 
     def update_player(self):
         if not self.player_window or not self.player_window.winfo_exists():return
-        item=self.current_track or {};position=self.player.position();duration=self.player.duration
+        item=self.current_track or {};player=self.active_player();position=player.position();duration=player.duration
         self.track_title.configure(text=item.get('title','Choose a track from your library.'))
-        key=(item.get('path'),item.get('thumbnail'))
-        if getattr(self,'_player_art_key',None)!=key:
-            self._player_art=self.cover_image(item.get('thumbnail'),item.get('title','Local audio'),'AUDIO',(76,76));self.player_cover.configure(image=self._player_art);self._player_art_key=key
-        self.play_button.configure(text='Pause' if self.player.active and not self.player.paused else 'Play')
+        self.play_button.configure(text='Pause' if player.active and not player.paused else 'Play')
+        is_video=self.using_video and self.video_player.has_video
+        self.effect_control.configure(state='normal' if is_video else 'disabled')
+        self.disc_toggle.configure(state='disabled' if is_video else 'normal')
+        self.seek_slider.configure(state='normal' if duration else 'disabled')
+        self.seek_slider.set(min(1,position/duration) if duration else 0)
         self.playback_progress.set(min(1,position/duration) if duration else 0)
         self.track_time.configure(text=f'{int(position)//60:02}:{int(position)%60:02} / '+(f'{int(duration)//60:02}:{int(duration)%60:02}' if duration else '--:--'))
 
@@ -260,7 +349,7 @@ class SunDrop(ctk.CTk):
                 self.inspected_url,self.info,self.choices=data
                 self.title_label.configure(text=self.info.get('title','Untitled media'))
                 seconds=self.info.get('duration');creator=self.info.get('artist') or self.info.get('uploader') or 'Unknown creator';self.detail_label.configure(text=f"{creator}\n{seconds or 'Unknown'} seconds · {len(self.choices)} source choices")
-                groups=list(dict.fromkeys(self.format_group(label) for label in self.choices));self.format_type.configure(values=groups);self.format_type.set(groups[0]);self.filter_formats(groups[0]);self.status.configure(text='Media ready. Choose format, source quality and destination.')
+                groups=list(dict.fromkeys(self.format_group(label) for label in self.choices));self.format_type.configure(values=groups);self.format_type.set(groups[0]);self.filter_formats(groups[0]);self.status.configure(text='Video needs FFmpeg to combine picture and sound. Only audio is available until it is installed.' if self.info.get('video_needs_ffmpeg') else 'Media ready. Video includes visuals; Audio only saves sound.')
                 self.art=self.cover_image(self.info.get('local_thumbnail'),self.info.get('title','Media'),self.info.get('ext','media'),(170,110));self.thumbnail.configure(image=self.art)
             elif kind=='thumbnail':self.art=ctk.CTkImage(data,size=(170,90));self.thumbnail.configure(image=self.art)
             elif kind=='progress':
@@ -274,6 +363,9 @@ class SunDrop(ctk.CTk):
         if self.player_window and self.player_window.winfo_exists():self.update_player()
         self.after(100,self.poll)
 
-    def close(self):self.cancel.set();self.player.stop();self.destroy()
+    def close(self):
+        self.cancel.set();self.player.stop();self.video_player.stop();self.cd_visual.stop()
+        if self._frame_after is not None:self.after_cancel(self._frame_after);self._frame_after=None
+        self.destroy()
 
 if __name__=='__main__':SunDrop().mainloop()
