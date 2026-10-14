@@ -1,6 +1,11 @@
 """Small Pillow display effects. Input frames and saved media stay untouched."""
 from PIL import Image, ImageDraw, ImageFont, ImageOps
 
+def cd_landscape(frame,size=(640,360)):
+    """Rotate the supplied portrait visual clockwise and fill the display only."""
+    rotated=frame.convert('RGB').transpose(Image.Transpose.ROTATE_270)
+    return ImageOps.fit(rotated,size,method=Image.Resampling.LANCZOS)
+
 def video_effect(frame,mode='Normal',size=(640,360)):
     source=ImageOps.contain(frame.convert('RGB'),size)
     if mode=='Pixel':

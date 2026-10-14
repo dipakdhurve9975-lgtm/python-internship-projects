@@ -43,6 +43,8 @@ try:
     app.player_window.geometry('740x820+500+20');pump(1)
     assert app.last_cd_frame is not None,'The user-provided CD video did not render'
     capture('reference-cd')
+    app.set_theme('Dark');capture('reference-cd-dark')
+    app.set_theme('Light')
     app.toggle_playback();assert app.active_player().paused
     assert not errors,errors
     assert hashlib.sha256(sample.read_bytes()).hexdigest()==before

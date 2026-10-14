@@ -8,7 +8,7 @@ import customtkinter as ctk
 from PIL import Image, ImageDraw, ImageOps
 from core import Downloader, History, friendly_error
 from player import AudioPlayer, VideoPlayer, open_local
-from effects import video_effect
+from effects import video_effect, cd_landscape
 
 ctk.set_appearance_mode('Light')
 BG=('#BCE8E5','#203534');CARD=('#F5EFE2','#293a37');INK=('#282923','#f5efe2');MUTED=('#58635c','#b8cec5');AMBER='#f4bd35';OUTLINE=('#282923','#b8cec5')
@@ -74,7 +74,12 @@ class SunDrop(ctk.CTk):
             elif isinstance(child,ctk.CTkButton):child.configure(border_width=2,border_color=OUTLINE,corner_radius=7,font=ctk.CTkFont(family='Consolas',size=13,weight='bold'),fg_color=CARD,hover_color=('#a9d9d5','#3d5852'),text_color=INK)
             self.style_inputs(child)
 
-    def toggle_theme(self):ctk.set_appearance_mode('Dark' if ctk.get_appearance_mode()=='Light' else 'Light')
+    def set_theme(self,mode):
+        ctk.set_appearance_mode(mode)
+        if hasattr(self,'settings_theme'):self.settings_theme.set(mode)
+        if hasattr(self,'player_theme') and self.player_theme.winfo_exists():self.player_theme.set(ctk.get_appearance_mode())
+
+    def toggle_theme(self):self.set_theme('Dark' if ctk.get_appearance_mode()=='Light' else 'Light')
 
     def card(self,parent):
         shadow=ctk.CTkFrame(parent,fg_color=('#282923','#0f201d'),corner_radius=12);shadow.pack(fill='x',pady=10,padx=(0,5));shadow.grid_columnconfigure(0,weight=1)
@@ -113,7 +118,8 @@ class SunDrop(ctk.CTk):
     def build_settings(self):
         page=self.pages['Settings'];self.label(page,'Keep things comfortable.',28,True).pack(anchor='w',pady=12)
         card=self.card(page);self.label(card,'Appearance',18,True).pack(anchor='w',padx=24,pady=(24,10))
-        ctk.CTkSegmentedButton(card,values=['Light','Dark','System'],command=ctk.set_appearance_mode,selected_color='#b97805',selected_hover_color='#a16a09').pack(anchor='w',padx=24,pady=(0,24))
+        self.settings_theme=ctk.CTkSegmentedButton(card,values=['Light','Dark','System'],command=self.set_theme,selected_color='#b97805',selected_hover_color='#a16a09')
+        self.settings_theme.set(ctk.get_appearance_mode());self.settings_theme.pack(anchor='w',padx=24,pady=(0,24))
         card=self.card(page);self.label(card,'FFmpeg',18,True).pack(anchor='w',padx=24,pady=(24,10))
         self.label(card,('Detected: '+self.service.ffmpeg()) if self.service.ffmpeg() else 'Not installed. Single-file downloads are still available.',13,color=MUTED,wraplength=650).pack(anchor='w',padx=24,pady=(0,24))
         card=self.card(page)
@@ -221,6 +227,10 @@ class SunDrop(ctk.CTk):
         window=self.player_window
         body=ctk.CTkScrollableFrame(window,fg_color=BG);body.pack(fill='both',expand=True,padx=10,pady=8)
         card=self.card(body)
+        theme_row=ctk.CTkFrame(card,fg_color='transparent');theme_row.pack(fill='x',padx=20,pady=(10,0))
+        self.label(theme_row,'APPEARANCE',11,True,color=MUTED).pack(side='left')
+        self.player_theme=ctk.CTkSegmentedButton(theme_row,values=['Light','Dark'],command=self.set_theme,selected_color='#526e62')
+        self.player_theme.set(ctk.get_appearance_mode());self.player_theme.pack(side='right')
         self.track_title=self.label(card,'Open a video or audio file.',14,True,wraplength=620);self.track_title.pack(padx=15,pady=(12,5))
         self.player_cover=ctk.CTkLabel(card,text='Open a local file below, or choose one from your library.',width=640,height=360,fg_color='#172522',corner_radius=8);self.player_cover.pack(padx=20,pady=5)
         effects=ctk.CTkFrame(card,fg_color='transparent');effects.pack(pady=5)
@@ -263,7 +273,7 @@ class SunDrop(ctk.CTk):
             image=video_effect(self.last_frame,self.effect_mode)
         elif self.disc_enabled:
             if self.last_cd_frame is None:return
-            image=video_effect(self.last_cd_frame,'Normal')
+            image=cd_landscape(self.last_cd_frame)
         else:
             try:
                 with Image.open(self.current_track.get('thumbnail','')) as cover:image=ImageOps.contain(cover.convert('RGB'),(300,300))

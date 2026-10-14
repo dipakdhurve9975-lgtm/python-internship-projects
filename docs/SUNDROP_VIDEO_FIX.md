@@ -8,6 +8,8 @@ The integrated player opens local video and audio files, with play/pause, previo
 
 Music playback uses the exact MP4 supplied by the user as a muted looping visual. It pauses with the song. The visual's own audio is disabled so the selected music is the only audio output. The optional checkbox turns it off. No replacement CD artwork was generated. The copied asset `sundrop/assets/music-cd-reference.mp4` has SHA-256 `20b07c7fed35905b8c9221f62e19769d4f69eca2d20a4f568b9a0b91b070b96d`, matching the supplied original.
 
+The player has explicit Light/Dark buttons at the top, synchronized with the main app's appearance setting. The supplied portrait CD visual is rotated clockwise by 90 degrees and fitted to fill the landscape display. Rotation and fitting happen only to decoded display frames; the original clip and downloaded music are unchanged. Other downloaded videos retain their original orientation.
+
 The GUI uses FFpyplayer for both audio and video. Mixing its SDL libraries with pygame in the same Windows GUI process caused version conflicts during development. The old standalone AudioPlayer API is retained, but the GUI uses one decoder family. Mono/stereo playback is normalized in memory, and the UI avoids reading an uninitialized native audio clock. Neither normalization nor effects write to the original file.
 
 ## Testing
